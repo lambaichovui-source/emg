@@ -1,0 +1,336 @@
+# Codebase Function Map
+
+## `./worker_threads.py`
+
+### Functions
+- `_human_only_annotations`
+
+### Classes
+- **`TrainingDatasetLoadThread`**
+  - `__init__`
+  - `run`
+- **`DataLoadingThread`**
+  - `__init__`
+  - `run`
+- **`RefilterThread`**
+  - `__init__`
+  - `run`
+- **`AITrainingThreadV2`**
+  - `__init__`
+  - `run`
+  - `_validate_v2`
+- **`GoldStandardStageThread`**
+  - `__init__`
+  - `run`
+  - `_emit_summary`
+- **`NeurotonicInferenceThread`**
+  - `__init__`
+  - `run`
+
+## `./main.py`
+
+### Functions
+- `_prepare_windows_torch_dll_paths`
+- `_preload_torch_runtime_early`
+- `generate_test_csv`
+- `main`
+
+### Classes
+- **`AppController`**
+  - `__init__`
+  - `_prepare_torch_dll_path`
+  - `_format_torch_runtime_error`
+  - `_ensure_torch_runtime`
+  - `_on_load_csv`
+  - `_reset_accumulator`
+  - `_on_progress`
+  - `_on_chunk`
+  - `_on_metadata_loaded`
+  - `_on_finished`
+  - `_on_features`
+  - `_on_error`
+  - `_gain_multiplier`
+  - `_preview_plots`
+  - `_refresh_plots`
+  - `_on_gain_changed`
+  - `_on_auto_fit_y_range`
+  - `_on_filter_settings_changed`
+  - `_on_refilter_finished`
+  - `_on_refilter_error`
+  - `_on_annotation_selected`
+  - `_on_save_annotations`
+  - `_standardize_v2_annotations`
+  - `_on_load_annotations`
+  - `_on_export_training_csv`
+  - `_on_load_training_csv`
+  - `_on_training_csv_loaded`
+  - `_on_training_csv_error`
+  - `_on_start_training`
+  - `_on_batch_metrics`
+  - `_on_epoch_metrics`
+  - `_on_training_done`
+  - `_on_training_error`
+  - `_gold_working_channels`
+  - `_gold_cache_payload`
+  - `_merge_gold_cache_payload`
+  - `_on_start_gold_stage`
+  - `_on_start_gold_standard_all`
+  - `_on_gold_stage_finished`
+  - `_on_gold_annotations`
+  - `_on_gold_standard_done`
+  - `_on_gold_standard_error`
+  - `_on_start_auto_annotate_test`
+  - `_on_infer_progress`
+  - `_on_infer_ready`
+  - `_on_neurotonic_update`
+  - `_on_neurotonic_done`
+  - `_on_infer_error`
+  - `_latest_model_path`
+  - `_on_start_batch_training`
+  - `_on_batch_file_progress`
+  - `_create_model_backup`
+  - `_restore_model_backup`
+  - `_reload_model_dependent_components`
+  - `_refresh_backup_status_on_startup`
+  - `_set_model_snapshot_controls_enabled`
+
+## `./gold_standard_model.py`
+
+### Functions
+- `_zero_crossing_count`
+- `_mad`
+- `apply_energy_gate`
+- `_adaptive_tkeo_threshold`
+- `detect_mup_timestamps`
+- `extract_train_features`
+- `classify_emg_event`
+- `analyze_channel_events`
+- `_analyze_channel_packed`
+- `recommended_worker_count`
+- `run_gold_standard_parallel`
+- `filter_events_for_display`
+- `cap_annotation_list`
+- `events_to_annotations`
+- `run_gold_standard_multichannel`
+- `isolate_mup_pulse_timestamps`
+- `isolate_mup_pulse_timestamps_per_channel`
+
+## `./neurotonic_logic.py`
+
+### Classes
+- **`NeurotonicThresholds`**
+- **`NeurotonicClassifier`**
+  - `__init__`
+  - `_clip01`
+  - `_max_continuous_group`
+  - `largest_group_timestamps`
+  - `classify_window`
+  - `classify`
+
+## `./gold_standard_pipeline.py`
+
+### Functions
+- `_parallel_channels`
+- `run_stage`
+- `run_stages`
+
+### Classes
+- **`GoldStandardCache`**
+  - `reset`
+  - `invalidate_from`
+  - `status_text`
+
+## `./ui_mainwindow.py`
+
+### Classes
+- **`AnnotatableViewBox`**
+  - `__init__`
+  - `mouseDragEvent`
+  - `wheelEvent`
+- **`LabeledRegionItem`**
+  - `__init__`
+  - `set_label`
+  - `_apply_style`
+  - `promote_to_human`
+  - `mouseClickEvent`
+  - `_show_context_menu`
+- **`MainWindow`**
+  - `__init__`
+  - `_build_ui`
+  - `_build_central_plot_area`
+  - `_build_left_dock`
+  - `_build_right_dock`
+  - `_build_bottom_dock`
+  - `_build_mup_criteria_dock`
+  - `_build_channel_group`
+  - `_build_status_bar`
+  - `_save_settings`
+  - `_load_settings`
+  - `_apply_theme`
+  - `_toggle_theme`
+  - `_apply_clinical_grid`
+  - `_division_sec`
+  - `_show_window_at`
+  - `_step_by_divisions`
+  - `_on_timebase_changed`
+  - `get_visible_time_range`
+  - `set_time_extent`
+  - `pan_to_timestamp`
+  - `_update_bottom_minute_timeline`
+  - `_position_channel_name_items`
+  - `_update_time_scrollbar`
+  - `_on_time_scrollbar_changed`
+  - `_on_plot_container_resize`
+  - `_on_zoom_in`
+  - `_on_zoom_out`
+  - `_on_plot_wheel_scroll`
+  - `_on_confidence_slider_changed`
+  - `set_status`
+  - `show_progress`
+  - `set_ram_text`
+  - `set_loss_text`
+  - `set_val_loss_text`
+  - `set_f1_text`
+  - `set_training_progress_text`
+  - `set_backup_status_text`
+  - `set_gold_cache_status`
+  - `set_gold_step_buttons_enabled`
+  - `get_selected_model_key`
+  - `set_mup_sampling_text`
+  - `set_mup_threshold_text`
+  - `set_mup_live_metrics`
+  - `set_neurotonic_status`
+  - `update_curve`
+  - `update_overlap_traces`
+  - `clear_all_curves`
+  - `set_active_channels`
+  - `set_channel_names`
+  - `set_gain_scale`
+  - `_on_y_range_input_changed`
+  - `set_fixed_y_range`
+  - `_on_trace_overlap_toggled`
+  - `set_analysis_values`
+  - `set_micro_burst_values`
+  - `apply_filter_metadata`
+  - `get_filter_settings`
+  - `clear_annotations`
+  - `add_ai_annotation`
+  - `clear_ai_annotations`
+  - `add_ai_annotations`
+  - `get_annotations_data`
+  - `set_annotations_data`
+  - `update_annotation_metrics`
+  - `_on_channel_toggled`
+  - `_on_region_requested`
+  - `_create_region`
+  - `_on_region_geometry_changed`
+  - `_on_region_label_changed`
+  - `_on_region_promoted`
+  - `_on_region_selected`
+  - `clear_micro_burst_overlay`
+  - `show_micro_burst_overlay`
+  - `_on_annotation_row_clicked`
+  - `_remove_annotation`
+  - `_create_region_controls`
+  - `_position_region_controls`
+  - `_reindex_annotation_rows`
+  - `keyPressEvent`
+
+## `./data_handler.py`
+
+### Functions
+- `calc_rms`
+- `calc_zcr`
+- `calc_waveform_length`
+- `calc_peak_to_peak`
+- `calc_isi_features`
+- `calc_rolling_amplitude`
+- `detect_and_blank_artifacts`
+- `calc_mav`
+- `calc_rectified_moving_avg`
+- `calc_symmetry_index`
+- `calc_envelope_decrescendo`
+- `calc_spike_burst_density`
+- `extract_all_features`
+- `detect_micro_bursts`
+
+### Classes
+- **`RingBuffer`**
+  - `__init__`
+  - `capacity`
+  - `count`
+  - `is_full`
+  - `append`
+  - `_get_ordered_unlocked`
+  - `get_ordered`
+  - `get_last_seconds`
+  - `reset`
+- **`SignalPreprocessor`**
+  - `__init__`
+  - `apply_notch`
+  - `blank_artifacts`
+  - `apply_user_filters`
+  - `_apply_iir_highpass`
+  - `_reduce_sep`
+  - `_blank_cautery_hold`
+- **`DataHandler`**
+  - `__init__`
+  - `read_csv_metadata`
+  - `estimate_rows`
+  - `detect_columns`
+  - `iter_chunks`
+  - `iter_signal_chunks`
+  - `finalize`
+
+## `./annotation_store.py`
+
+### Functions
+- `_annotation_fieldnames`
+- `export_training_csv`
+- `load_training_csv`
+- `is_training_csv`
+
+## `./ai_model_v2.py`
+
+### Functions
+- `mapminmax_normalize`
+- `build_pulse_trains_from_annotations`
+- `frame_signal`
+- `build_pulse_train`
+- `_pulse_dict_to_matrix`
+- `label_windows_center_span`
+- `multilabel_f1_score`
+- `train_model_v2`
+- `build_loaders_from_dataset`
+- `infer_single_window`
+- `benchmark_single_window_latency`
+- `_example_usage`
+
+### Classes
+- **`V2DataInterfaceSpec`**
+- **`V2TrainingConfig`**
+- **`EMGWindowDataset`**
+  - `__init__`
+  - `__len__`
+  - `__getitem__`
+- **`HDSemgWindowDataset`**
+  - `__init__`
+  - `__len__`
+  - `__getitem__`
+- **`ExternalAttention`**
+  - `__init__`
+  - `forward`
+- **`BiGRUEA`**
+  - `__init__`
+  - `forward`
+- **`SOGRUEA`**
+  - `__init__`
+  - `forward`
+- **`MOGRUEA`**
+  - `__init__`
+  - `forward`
+- **`MOGRUEANet`**
+  - `__init__`
+  - `forward_sequence`
+  - `forward`
+  - `predict_proba`
