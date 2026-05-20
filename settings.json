@@ -1,0 +1,22 @@
+{
+  "dark_mode": false,
+  "gain": 55,
+  "y_min": "-2763.79",
+  "y_max": "2763.71",
+  "timebase_idx": 0,
+  "trace_overlap": false,
+  "model_select_idx": 0,
+  "show_raw": false,
+  "enable_notch": false,
+  "notch_idx": 0,
+  "low_cut": "30",
+  "high_cut": "10000",
+  "enable_baseline": false,
+  "baseline_cutoff": "15",
+  "enable_sep": false,
+  "sep_blank_ms": "3.0",
+  "sep_trigger": true,
+  "enable_cautery": true,
+  "cautery_threshold": "2000",
+  "cautery_hold_ms": "150"
+}

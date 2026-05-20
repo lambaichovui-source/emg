@@ -1,0 +1,74 @@
+You are given a CSV file containing EMG (electromyography) data recorded from multiple muscles. The file is structured with both metadata and signal data. Follow the instructions below to correctly parse and interpret the data.
+
+📄 1. File Structure Overview
+
+The file has 8 header rows, followed by rows of signal data.
+
+The first column in every row is a label (e.g., "Name", "Time", etc.) or sample index (starting from 0).
+
+All remaining columns correspond to individual muscles, with consistent ordering across all rows.
+
+🔢 2. Header Row Descriptions (Rows 0–7)
+
+Row 0: Muscle Names
+
+Contains comma-separated names of muscles (e.g., Left DEL, Left BIC, ..., Right ADM).
+
+All columns after the first represent muscles.
+
+Count the number of muscles by subtracting 1 from the total number of columns.
+
+Row 1: Recording Time
+
+All values (excluding the first column) contain the same timestamp in the format: yyyymmddhhmmss (e.g., 20251006101750).
+
+This is the start time of the recording.
+
+Row 2: Gain
+
+Gain settings in microvolts per division (µV/Div) for each muscle.
+
+Row 3: Highcut Filter Frequency
+
+Highcut filter in Hz applied to each muscle channel.
+
+Row 4: Lowcut Filter Frequency
+
+Lowcut filter in Hz applied to each muscle channel.
+
+Row 5: Notch Filter
+
+Notch filter setting (e.g., "Off") per muscle.
+
+Row 6: Sampling Period
+
+Time between samples (in seconds), same for all muscles.
+
+Use this to compute the time of each data row:
+time = sample_index × period
+
+Row 7: Units
+
+Units for the data (typically µV for microvolts).
+
+📊 3. Data Section (From Row 8 Onward)
+
+This is the actual EMG signal data.
+
+Column 0: Sample index (starting from 0).
+
+Columns 1 to N: EMG signal values from each muscle.
+
+Each row represents a new sample. To compute the time for each row:
+
+sample_time = start_time + (sample_index × period)
+
+🧠 Important Notes
+
+All header values (rows 1–7) are ordered per muscle and aligned with the columns from Row 0.
+
+The sampling period is identical for all muscles.
+
+All data units are assumed to be in µV unless specified otherwise.
+
+The first column in the data rows is always the sample index and should not be treated as muscle data.

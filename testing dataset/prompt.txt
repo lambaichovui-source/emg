@@ -1,0 +1,58 @@
+########### Loading Data
+"Generate the complete Python code to perform the following actions in a Google Colab notebook:
+1.  Mount Google Drive to the Colab environment and handle the authentication.
+2.  Use the pandas library to load a CSV file named 'emg_data.csv', located in the root folder of 'My Drive'.
+3.  Store the loaded data in a DataFrame named 'df'."
+########### Preprocessing the Signal
+"Generate the Python code to preprocess EMG data from a CSV file with the following specific structure:
+
+1.  **Parse the Input File**: The file contains an 8-row metadata header followed by numerical signal data. The columns in the header and the signal portion correspond to specific muscle channels.
+2.  **Load the Data**: Read the file into two separate pandas DataFrames: one for the metadata and one for the signal values.
+3.  **Extract the Sampling Rate**: From the metadata DataFrame, locate the 'Period (s)' value and calculate the corresponding sampling rate (fs = 1 / Period).
+4.  **Filter All Channels**: Iterate through every muscle channel in the signal DataFrame and apply a 60 Hz notch filter to remove powerline noise. The filter design must use the sampling rate extracted from the metadata.
+5.  **Visualize the Outcome**: Create a single plot to verify the result. On this plot, display the signal for one of the channels (e.g., 'Trapezius (11)') both *before* and *after* filtering."
+"Generate the Python code to perform an advanced feature engineering analysis on the preprocessed multi-channel EMG data. The goal is to create features that can help differentiate the clinical patterns you've described (e.g., spikes, bursts, trains, artifacts).
+
+Assume the preprocessed data is in a DataFrame where each column is a muscle channel.
+
+The process must follow these steps:
+
+1.  **Window the Data**: Segment the signal for each channel into overlapping windows of 256 samples with a 128-sample step size.
+2.  **Calculate Time-Domain Features**: For each window, compute a standard set of amplitude and complexity features:
+* Root Mean Square (RMS): To measure signal power.
+* Zero Crossing Rate (ZCR): To measure dominant frequency.
+* Waveform Length (WL): To measure signal complexity.
+* Peak Amplitude: The maximum absolute value in the window.
+3.  **Calculate Frequency-Domain Features**: For each window, compute the Power Spectral Density (PSD) using an FFT and then calculate:
+* Mean Frequency (MNF) and Median Frequency (MDF): To characterize the frequency distribution.
+* Power in Low-Frequency Band (1-20 Hz): To help identify movement artifacts.
+* Power in High-Frequency Band (100-200 Hz): To help identify neurotonic discharges.
+4.  **Assemble the Feature DataFrame**: Create a single pandas DataFrame containing all features for all windows from all channels. The DataFrame should include columns for the channel name and each of the calculated features.
+
+Data Labeling via Clustering
+"Generate the Python code to perform unsupervised clustering on the feature DataFrame to automatically label the EMG data.
+
+Assume the input is the DataFrame containing the engineered time and frequency-domain features.
+
+The process must follow these steps:
+
+1.  **Prepare Features**: Isolate the numerical feature columns from the DataFrame. It is essential to then **scale** these features (e.g., using StandardScaler) so that features with larger ranges do not dominate the clustering process.
+2.  **Apply K-Means Clustering**: Use the K-Means algorithm to group the scaled features into 8 distinct clusters. Add the resulting cluster labels as a new 'cluster' column in the original feature DataFrame.
+3.  **Visualize the Clusters**: To help with interpreting the groups, first apply Principal Component Analysis (PCA) to reduce the dimensionality of the feature data to two components. Then, create a scatter plot of these two components, coloring each point according to its assigned cluster label.
+
+Provide only the runnable code that produces the cluster visualization and the final labeled DataFrame, with no additional text or explanations."
+
+## Detailed Prompt: Training a Supervised Classifier
+"Generate the Python code to train and evaluate a supervised machine learning model using the labeled feature set.
+
+Assume the input is the feature DataFrame that includes all engineered features and the 'cluster' column, which will serve as our target label.
+
+The script must perform these final steps:
+
+1.  **Prepare for Modeling**: Separate the data into a features matrix (X) and a target vector (y, the 'cluster' column).
+2.  **Create Training and Testing Sets**: Split the dataset into two parts: 80% for training the model and 20% for testing its performance. Ensure the split is stratified to maintain the same proportion of samples for each cluster in both the train and test sets.
+3.  **Train the Classifier**: Initialize a Random Forest Classifier model from scikit-learn and train it on the training data.
+4.  **Evaluate Model Performance**: Use the trained model to make predictions on the unseen test data. Calculate and print the overall accuracy. Finally, generate and display a confusion matrix to visualize how well the model predicted each specific cluster.
+
+Provide only the runnable code that performs these actions, with no additional text or explanations."
+

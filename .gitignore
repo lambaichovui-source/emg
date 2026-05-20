@@ -1,0 +1,27 @@
+# Bytecode / caches
+__pycache__/
+*.py[cod]
+*.nbc
+*.nbi
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / OS
+.cursor/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Secrets / local settings (keep settings.json if you want defaults tracked)
+.env
+*.env.local
+
+# Large local datasets (GitHub limit 100 MB per file)
+testing dataset/fEMG Raw Data CN 7 12 11.csv
+
+# Optional: large trained weights (remove line to track checkpoints)
+# models/*.pth
+# model_weights_v2.pth
