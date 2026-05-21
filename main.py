@@ -62,6 +62,7 @@ from worker_threads import (
     DataLoadingThread,
     RefilterThread,
     AITrainingThreadV2,
+    AITrainingV2Config,
     NeurotonicInferenceThread,
     GoldStandardStageThread,
     TrainingDatasetLoadThread,
@@ -756,13 +757,14 @@ class AppController:
         self._set_model_snapshot_controls_enabled(False)
         self.window.show_progress(0)
         self.window.set_status("Preparing v2 training…")
-        self._trainer = AITrainingThreadV2(
+        config = AITrainingV2Config(
             time_arr=self._time,
             channels_arr=self._channels,
             annotations=normalized,
             sample_rate=int(round(self._sample_rate)) if self._sample_rate > 0 else 1280,
             save_path="model_weights_v2.pth",
         )
+        self._trainer = AITrainingThreadV2(config=config)
         self._trainer.batch_metrics.connect(self._on_batch_metrics)
         self._trainer.epoch_metrics.connect(self._on_epoch_metrics)
         self._trainer.training_finished.connect(self._on_training_done)
