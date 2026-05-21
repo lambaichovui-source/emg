@@ -608,7 +608,7 @@ class NeurotonicInferenceThread(QThread):
                 return
 
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            state = torch.load(self._model_path, map_location=device)
+            state = torch.load(self._model_path, map_location=device, weights_only=True)
             # Recover architecture from either legacy or rebuilt state_dict keys.
             if "input_proj.weight" in state:
                 in_channels = int(state["input_proj.weight"].shape[1])
