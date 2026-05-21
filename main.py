@@ -178,7 +178,7 @@ class AppController:
         try:
             os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
             self._prepare_torch_dll_path()
-            import torch  # noqa: F401
+            __import__("torch")
             self._torch_runtime_ok = True
             self._torch_runtime_error = None
             return True
