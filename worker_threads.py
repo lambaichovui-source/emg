@@ -224,51 +224,81 @@ class AITrainingThreadV2(QThread):
         self._early_stop_target = float(early_stop_target_loss)
         self._save_path = save_path
 
+    def _prepare_dataset(self):
+        from ai_model_v2 import (
+            HDSemgWindowDataset,
+            V2DataInterfaceSpec,
+            build_pulse_trains_from_annotations,
+        )
+
+        anns = _human_only_annotations(self._annotations)
+        normalized_anns: list[dict] = []
+        for ann in anns:
+            clean = dict(ann)
+            label = str(clean.get("label", "")).replace("AI:", "").strip()
+            mu_id = str(clean.get("mu_id", "")).strip()
+            if not mu_id:
+                if label.upper().startswith("MU"):
+                    mu_id = label
+                elif label:
+                    mu_id = f"MU_{label}"
+            if mu_id:
+                clean["mu_id"] = mu_id
+            normalized_anns.append(clean)
+
+        pulse_trains = build_pulse_trains_from_annotations(
+            self._time,
+            normalized_anns,
+        )
+        interface = V2DataInterfaceSpec(
+            sample_rate_hz=self._sample_rate,
+            window_size=120,
+            step_size=20,
+            center_span=20,
+        )
+        dataset = HDSemgWindowDataset(
+            channels=self._channels,
+            pulse_trains=pulse_trains,
+            n_mu=self._n_mu,
+            normalize=True,
+            interface=interface,
+        )
+        return dataset
+
+    def _create_loaders(self, dataset):
+        from torch.utils.data import DataLoader, random_split
+
+        val_len = max(1, int(len(dataset) * self._validation_split))
+        train_len = len(dataset) - val_len
+        if train_len < 1:
+            train_len = len(dataset) - 1
+            val_len = 1
+        train_set, val_set = random_split(dataset, [train_len, val_len])
+
+        train_loader = DataLoader(
+            train_set,
+            batch_size=min(self._batch_size, len(train_set)),
+            shuffle=True,
+            drop_last=False,
+        )
+        val_loader = DataLoader(
+            val_set,
+            batch_size=min(self._batch_size, len(val_set)),
+            shuffle=False,
+            drop_last=False,
+        )
+        return train_loader, val_loader
+
     def run(self):
         try:
-            import psutil
             import torch
             from ai_model_v2 import (
                 MOGRUEANet,
-                HDSemgWindowDataset,
-                V2DataInterfaceSpec,
-                build_pulse_trains_from_annotations,
                 multilabel_f1_score,
             )
-            from torch.utils.data import DataLoader, random_split
 
-            anns = _human_only_annotations(self._annotations)
-            normalized_anns: list[dict] = []
-            for ann in anns:
-                clean = dict(ann)
-                label = str(clean.get("label", "")).replace("AI:", "").strip()
-                mu_id = str(clean.get("mu_id", "")).strip()
-                if not mu_id:
-                    if label.upper().startswith("MU"):
-                        mu_id = label
-                    elif label:
-                        mu_id = f"MU_{label}"
-                if mu_id:
-                    clean["mu_id"] = mu_id
-                normalized_anns.append(clean)
+            dataset = self._prepare_dataset()
 
-            pulse_trains = build_pulse_trains_from_annotations(
-                self._time,
-                normalized_anns,
-            )
-            interface = V2DataInterfaceSpec(
-                sample_rate_hz=self._sample_rate,
-                window_size=120,
-                step_size=20,
-                center_span=20,
-            )
-            dataset = HDSemgWindowDataset(
-                channels=self._channels,
-                pulse_trains=pulse_trains,
-                n_mu=self._n_mu,
-                normalize=True,
-                interface=interface,
-            )
             if len(dataset) < 8:
                 self.training_error.emit(
                     f"Need at least 8 window samples for v2 training, got {len(dataset)}."
@@ -281,87 +311,53 @@ class AITrainingThreadV2(QThread):
                 n_mu=dataset.n_mu,
             ).to(device)
 
-            val_len = max(1, int(len(dataset) * self._validation_split))
-            train_len = len(dataset) - val_len
-            if train_len < 1:
-                train_len = len(dataset) - 1
-                val_len = 1
-            train_set, val_set = random_split(dataset, [train_len, val_len])
+            train_loader, val_loader = self._create_loaders(dataset)
 
-            train_loader = DataLoader(
-                train_set,
-                batch_size=min(self._batch_size, len(train_set)),
-                shuffle=True,
-                drop_last=False,
-            )
-            val_loader = DataLoader(
-                val_set,
-                batch_size=min(self._batch_size, len(val_set)),
-                shuffle=False,
-                drop_last=False,
-            )
+            self._run_training_loop(model, train_loader, val_loader, device, multilabel_f1_score)
 
-            criterion = torch.nn.BCEWithLogitsLoss()
-            optimizer = torch.optim.AdamW(model.parameters(), lr=self._lr, weight_decay=1e-5)
-            process = psutil.Process(os.getpid())
+        except Exception as exc:
+            self.training_error.emit(str(exc))
 
-            best_val = float("inf")
-            best_state = None
-            bad_epochs = 0
+    def _run_training_loop(self, model, train_loader, val_loader, device, f1_fn):
+        import os
+        import psutil
+        import torch
 
-            for epoch in range(1, self._epochs + 1):
-                model.train()
-                running_loss = 0.0
-                n_batches = 0
-                total_batches = max(1, len(train_loader))
+        criterion = torch.nn.BCEWithLogitsLoss()
+        optimizer = torch.optim.AdamW(model.parameters(), lr=self._lr, weight_decay=1e-5)
+        process = psutil.Process(os.getpid())
 
-                for batch_idx, (x_batch, y_batch) in enumerate(train_loader, start=1):
-                    x_batch = x_batch.to(device=device, dtype=torch.float32)
-                    y_batch = y_batch.to(device=device, dtype=torch.float32)
+        best_val = float("inf")
+        best_state = None
+        bad_epochs = 0
 
-                    optimizer.zero_grad(set_to_none=True)
-                    logits = model(x_batch)
-                    loss = criterion(logits, y_batch)
-                    loss.backward()
-                    optimizer.step()
+        for epoch in range(1, self._epochs + 1):
+            model.train()
+            running_loss = 0.0
+            n_batches = 0
+            total_batches = max(1, len(train_loader))
 
-                    running_loss += float(loss.item())
-                    n_batches += 1
+            for batch_idx, (x_batch, y_batch) in enumerate(train_loader, start=1):
+                x_batch = x_batch.to(device=device, dtype=torch.float32)
+                y_batch = y_batch.to(device=device, dtype=torch.float32)
 
-                    train_avg = running_loss / max(1, n_batches)
-                    val_loss, val_f1 = self._validate_v2(
-                        model=model,
-                        val_loader=val_loader,
-                        criterion=criterion,
-                        device=device,
-                        threshold=0.5,
-                        f1_fn=multilabel_f1_score,
-                    )
-                    ram = process.memory_info().rss / (1024 ** 3)
-                    vram = (
-                        torch.cuda.memory_allocated(device) / (1024 ** 3)
-                        if device.type == "cuda"
-                        else 0.0
-                    )
-                    self.batch_metrics.emit(
-                        epoch,
-                        batch_idx,
-                        total_batches,
-                        float(train_avg),
-                        float(val_loss),
-                        float(val_f1),
-                        float(ram),
-                        float(vram),
-                    )
+                optimizer.zero_grad(set_to_none=True)
+                logits = model(x_batch)
+                loss = criterion(logits, y_batch)
+                loss.backward()
+                optimizer.step()
 
-                avg_loss = running_loss / max(1, n_batches)
+                running_loss += float(loss.item())
+                n_batches += 1
+
+                train_avg = running_loss / max(1, n_batches)
                 val_loss, val_f1 = self._validate_v2(
                     model=model,
                     val_loader=val_loader,
                     criterion=criterion,
                     device=device,
                     threshold=0.5,
-                    f1_fn=multilabel_f1_score,
+                    f1_fn=f1_fn,
                 )
                 ram = process.memory_info().rss / (1024 ** 3)
                 vram = (
@@ -369,34 +365,58 @@ class AITrainingThreadV2(QThread):
                     if device.type == "cuda"
                     else 0.0
                 )
-                self.epoch_metrics.emit(
+                self.batch_metrics.emit(
                     epoch,
-                    self._epochs,
-                    float(avg_loss),
+                    batch_idx,
+                    total_batches,
+                    float(train_avg),
                     float(val_loss),
                     float(val_f1),
                     float(ram),
                     float(vram),
                 )
 
-                if val_loss < best_val:
-                    best_val = val_loss
-                    best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-                    bad_epochs = 0
-                    os.makedirs(os.path.dirname(self._save_path) or ".", exist_ok=True)
-                    torch.save(best_state, self._save_path)
-                else:
-                    bad_epochs += 1
+            avg_loss = running_loss / max(1, n_batches)
+            val_loss, val_f1 = self._validate_v2(
+                model=model,
+                val_loader=val_loader,
+                criterion=criterion,
+                device=device,
+                threshold=0.5,
+                f1_fn=f1_fn,
+            )
+            ram = process.memory_info().rss / (1024 ** 3)
+            vram = (
+                torch.cuda.memory_allocated(device) / (1024 ** 3)
+                if device.type == "cuda"
+                else 0.0
+            )
+            self.epoch_metrics.emit(
+                epoch,
+                self._epochs,
+                float(avg_loss),
+                float(val_loss),
+                float(val_f1),
+                float(ram),
+                float(vram),
+            )
 
-                if val_loss <= self._early_stop_target or bad_epochs >= self._early_stop_patience:
-                    break
+            if val_loss < best_val:
+                best_val = val_loss
+                best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+                bad_epochs = 0
+                os.makedirs(os.path.dirname(self._save_path) or ".", exist_ok=True)
+                torch.save(best_state, self._save_path)
+            else:
+                bad_epochs += 1
 
-            if best_state is not None:
-                model.load_state_dict(best_state)
+            if val_loss <= self._early_stop_target or bad_epochs >= self._early_stop_patience:
+                break
 
-            self.training_finished.emit(os.path.abspath(self._save_path))
-        except Exception as exc:
-            self.training_error.emit(str(exc))
+        if best_state is not None:
+            model.load_state_dict(best_state)
+
+        self.training_finished.emit(os.path.abspath(self._save_path))
 
     @staticmethod
     def _validate_v2(model, val_loader, criterion, device, threshold: float, f1_fn):
