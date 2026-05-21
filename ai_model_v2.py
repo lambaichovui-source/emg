@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Iterable
 
 import numpy as np
 import torch
