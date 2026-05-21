@@ -8,6 +8,7 @@ exclusively responsible for GUI updates.
 
 import os
 import numpy as np
+from dataclasses import dataclass
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from data_handler import (
@@ -186,6 +187,21 @@ class RefilterThread(QThread):
             self.refilter_error.emit(str(exc))
 
 
+@dataclass
+class AITrainingV2Config:
+    time_arr: np.ndarray
+    channels_arr: np.ndarray
+    annotations: list[dict]
+    sample_rate: int = 2048
+    n_mu: int | None = None
+    epochs: int = 30
+    lr: float = 1e-3
+    batch_size: int = 256
+    validation_split: float = 0.2
+    early_stop_patience: int = 6
+    early_stop_target_loss: float = 0.02
+    save_path: str = "model_weights_v2.pth"
+
 class AITrainingThreadV2(QThread):
     """Background trainer for the v2 MO-GRU-EA sequence model."""
 
@@ -196,33 +212,22 @@ class AITrainingThreadV2(QThread):
 
     def __init__(
         self,
-        time_arr: np.ndarray,
-        channels_arr: np.ndarray,
-        annotations: list[dict],
-        sample_rate: int = 2048,
-        n_mu: int | None = None,
-        epochs: int = 30,
-        lr: float = 1e-3,
-        batch_size: int = 256,
-        validation_split: float = 0.2,
-        early_stop_patience: int = 6,
-        early_stop_target_loss: float = 0.02,
-        save_path: str = "model_weights_v2.pth",
+        config: AITrainingV2Config,
         parent=None,
     ):
         super().__init__(parent)
-        self._time = time_arr
-        self._channels = channels_arr
-        self._annotations = annotations
-        self._sample_rate = int(sample_rate)
-        self._n_mu = n_mu
-        self._epochs = int(epochs)
-        self._lr = float(lr)
-        self._batch_size = int(batch_size)
-        self._validation_split = float(validation_split)
-        self._early_stop_patience = int(early_stop_patience)
-        self._early_stop_target = float(early_stop_target_loss)
-        self._save_path = save_path
+        self._time = config.time_arr
+        self._channels = config.channels_arr
+        self._annotations = config.annotations
+        self._sample_rate = int(config.sample_rate)
+        self._n_mu = config.n_mu
+        self._epochs = int(config.epochs)
+        self._lr = float(config.lr)
+        self._batch_size = int(config.batch_size)
+        self._validation_split = float(config.validation_split)
+        self._early_stop_patience = int(config.early_stop_patience)
+        self._early_stop_target = float(config.early_stop_target_loss)
+        self._save_path = config.save_path
 
     def run(self):
         try:
