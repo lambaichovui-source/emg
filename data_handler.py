@@ -383,11 +383,12 @@ def detect_micro_bursts(
         ends = np.concatenate((ends, [above.size]))
 
     min_len = max(1, int(min_duration_ms * fs / 1000.0))
-    spans = []
-    for s, e in zip(starts.tolist(), ends.tolist()):
-        if (e - s) >= min_len:
-            spans.append((s, e))
-    return np.array(spans, dtype=np.int32), envelope.astype(np.float32), threshold
+    valid = (ends - starts) >= min_len
+    if not np.any(valid):
+        spans = np.empty((0, 2), dtype=np.int32)
+    else:
+        spans = np.column_stack((starts[valid], ends[valid])).astype(np.int32)
+    return spans, envelope.astype(np.float32), threshold
 
 
 # ━━ Ring Buffer ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
