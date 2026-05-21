@@ -57,7 +57,7 @@ def _preload_torch_runtime_early() -> None:
 
 _preload_torch_runtime_early()
 
-from ui_mainwindow import MainWindow, NUM_CHANNELS
+from ui_mainwindow import MainWindow
 from worker_threads import (
     DataLoadingThread,
     RefilterThread,
