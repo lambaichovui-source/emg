@@ -5,8 +5,6 @@ Stage-2 classifier for pulse trains produced by FastICA peak picking (Stage 1).
 All logic is mathematical; no machine learning.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 import numpy as np
