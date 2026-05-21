@@ -441,16 +441,14 @@ def filter_events_for_display(
     if not events or max_per_channel <= 0:
         return []
 
-    scored: list[tuple[float, dict]] = []
-    for ev in events:
-        dur = float(ev.get("duration", 0.0))
-        n_sp = int(ev.get("n_spikes", 0))
-        label = str(ev.get("label", ""))
-        is_train = "Train" in label or dur >= 1.0
-        if dur < min_duration_s and n_sp < 2 and not is_train:
-            continue
-        score = dur * max(n_sp, 1) * (3.0 if is_train else 1.0)
-        scored.append((score, ev))
+    scored = [
+        (dur * (n_sp if n_sp > 1 else 1) * (3.0 if is_train else 1.0), ev)
+        for ev in events
+        for dur in (float(ev.get("duration", 0.0)),)
+        for n_sp in (int(ev.get("n_spikes", 0)),)
+        for is_train in ("Train" in str(ev.get("label", "")) or dur >= 1.0,)
+        if not (dur < min_duration_s and n_sp < 2 and not is_train)
+    ]
 
     scored.sort(key=lambda item: item[0], reverse=True)
     return [ev for _, ev in scored[:max_per_channel]]
