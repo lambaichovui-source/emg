@@ -26,13 +26,10 @@ from data_handler import (
 
 def _human_only_annotations(annotations: list[dict]) -> list[dict]:
     """Drop AI-generated regions and keep only human-authored annotations."""
-    clean: list[dict] = []
-    for ann in annotations:
-        label = str(ann.get("label", "")).strip()
-        if label.startswith("AI:"):
-            continue
-        clean.append(ann)
-    return clean
+    return [
+        ann for ann in annotations
+        if not str(ann.get("label", "")).strip().startswith("AI:")
+    ]
 
 
 class TrainingDatasetLoadThread(QThread):
