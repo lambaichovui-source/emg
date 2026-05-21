@@ -138,6 +138,22 @@ def load_training_csv(filepath: str) -> dict[str, Any]:
     section = "meta"
     ann_fieldnames = _annotation_fieldnames()
 
+    # Pre-calculated indices for annotations initialized with defaults
+    idx_map_init = {name: i for i, name in enumerate(ann_fieldnames)}
+    c_idx = idx_map_init.get("channel_idx", -1)
+    c_ch = idx_map_init.get("channel", -1)
+    c_st = idx_map_init.get("start_time", -1)
+    c_et = idx_map_init.get("end_time", -1)
+    c_lb = idx_map_init.get("label", -1)
+    c_mu = idx_map_init.get("mu_id", -1)
+    c_du = idx_map_init.get("duration", -1)
+    c_am = idx_map_init.get("amplitude", -1)
+    c_fr = idx_map_init.get("frequency", -1)
+    c_ns = idx_map_init.get("n_spikes", -1)
+    c_rc = idx_map_init.get("rhythmicity_cv", -1)
+    c_ts = idx_map_init.get("tendency_slope_hz_s", -1)
+    c_so = idx_map_init.get("source", -1)
+
     with open(filepath, "r", newline="", encoding="utf-8", errors="ignore") as f:
         reader = csv.reader(f)
         for row in reader:
@@ -180,27 +196,65 @@ def load_training_csv(filepath: str) -> dict[str, Any]:
 
             if section == "annotation_header":
                 ann_fieldnames = [c.strip() for c in row]
+                idx_map = {name: i for i, name in enumerate(ann_fieldnames)}
+                c_idx = idx_map.get("channel_idx", -1)
+                c_ch = idx_map.get("channel", -1)
+                c_st = idx_map.get("start_time", -1)
+                c_et = idx_map.get("end_time", -1)
+                c_lb = idx_map.get("label", -1)
+                c_mu = idx_map.get("mu_id", -1)
+                c_du = idx_map.get("duration", -1)
+                c_am = idx_map.get("amplitude", -1)
+                c_fr = idx_map.get("frequency", -1)
+                c_ns = idx_map.get("n_spikes", -1)
+                c_rc = idx_map.get("rhythmicity_cv", -1)
+                c_ts = idx_map.get("tendency_slope_hz_s", -1)
+                c_so = idx_map.get("source", -1)
+
                 section = "annotations"
                 continue
 
             if section == "annotations":
-                rec = {ann_fieldnames[i]: row[i] if i < len(row) else "" for i in range(len(ann_fieldnames))}
+                row_len = len(row)
+                num_fields = len(ann_fieldnames)
+
+                # To exactly mimic `rec = {ann_fieldnames[i]: row[i] if i < len(row) else "" for i in range(len(ann_fieldnames))}`
+                # and `rec.get(col, default)`, we must check:
+                # 1. If the mapped index for a column `idx` is >= 0 and `< num_fields`.
+                # 2. If it is, and `idx < row_len`, the value is `row[idx]`.
+                # 3. If it is, and `idx >= row_len`, the value is `""` (which safely fails conversion).
+                # 4. If the column doesn't exist in `ann_fieldnames` (idx == -1), the value is the fallback default.
+
+                v_idx = row[c_idx] if 0 <= c_idx < row_len else ("" if 0 <= c_idx < num_fields else 0)
+                v_ch = row[c_ch] if 0 <= c_ch < row_len else ("" if 0 <= c_ch < num_fields else "")
+                v_st = row[c_st] if 0 <= c_st < row_len else ("" if 0 <= c_st < num_fields else 0.0)
+                v_et = row[c_et] if 0 <= c_et < row_len else ("" if 0 <= c_et < num_fields else 0.0)
+                v_lb = row[c_lb] if 0 <= c_lb < row_len else ("" if 0 <= c_lb < num_fields else "MUP")
+                v_mu = row[c_mu] if 0 <= c_mu < row_len else ("" if 0 <= c_mu < num_fields else "")
+                v_du = row[c_du] if 0 <= c_du < row_len else ("" if 0 <= c_du < num_fields else 0.0)
+                v_am = row[c_am] if 0 <= c_am < row_len else ("" if 0 <= c_am < num_fields else 0.0)
+                v_fr = row[c_fr] if 0 <= c_fr < row_len else ("" if 0 <= c_fr < num_fields else 0.0)
+                v_ns = row[c_ns] if 0 <= c_ns < row_len else ("" if 0 <= c_ns < num_fields else 0)
+                v_rc = row[c_rc] if 0 <= c_rc < row_len else ("" if 0 <= c_rc < num_fields else 0.0)
+                v_ts = row[c_ts] if 0 <= c_ts < row_len else ("" if 0 <= c_ts < num_fields else 0.0)
+                v_so = row[c_so] if 0 <= c_so < row_len else ("" if 0 <= c_so < num_fields else "file")
+
                 try:
                     annotations.append(
                         {
-                            "channel_idx": int(float(rec.get("channel_idx", 0))),
-                            "channel": str(rec.get("channel", "")),
-                            "start_time": float(rec.get("start_time", 0.0)),
-                            "end_time": float(rec.get("end_time", 0.0)),
-                            "label": str(rec.get("label", "MUP")),
-                            "mu_id": str(rec.get("mu_id", "")),
-                            "duration": float(rec.get("duration", 0.0)),
-                            "amplitude": float(rec.get("amplitude", 0.0)),
-                            "frequency": float(rec.get("frequency", 0.0)),
-                            "n_spikes": int(float(rec.get("n_spikes", 0))),
-                            "rhythmicity_cv": float(rec.get("rhythmicity_cv", 0.0)),
-                            "tendency_slope_hz_s": float(rec.get("tendency_slope_hz_s", 0.0)),
-                            "source": str(rec.get("source", "file")),
+                            "channel_idx": int(float(v_idx)),
+                            "channel": str(v_ch),
+                            "start_time": float(v_st),
+                            "end_time": float(v_et),
+                            "label": str(v_lb),
+                            "mu_id": str(v_mu),
+                            "duration": float(v_du),
+                            "amplitude": float(v_am),
+                            "frequency": float(v_fr),
+                            "n_spikes": int(float(v_ns)),
+                            "rhythmicity_cv": float(v_rc),
+                            "tendency_slope_hz_s": float(v_ts),
+                            "source": str(v_so),
                         }
                     )
                 except (TypeError, ValueError):
