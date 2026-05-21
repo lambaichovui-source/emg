@@ -15,7 +15,6 @@ Feature functions use Numba @njit for near-C speed.  Two sets exist:
                         Spike/Burst Density
 """
 
-import os
 import csv
 import threading
 import numpy as np
