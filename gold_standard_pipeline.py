@@ -27,7 +27,6 @@ from gold_standard_model import (
     events_to_annotations,
     extract_train_features,
     filter_events_for_display,
-    recommended_worker_count,
 )
 
 STAGE_LABELS: dict[int, str] = {
