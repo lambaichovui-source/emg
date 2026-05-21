@@ -106,99 +106,126 @@ def _parallel_channels(
             on_progress(ch + 1, n_ch)
 
 
-def run_stage(
-    stage: int,
+def _run_stage_1(
     cache: GoldStandardCache,
     channels: np.ndarray,
+    n_ch: int,
+    n_s: int,
+    fs: float,
+    _emit: Callable[[int, str], None],
     *,
-    max_channels: int = 16,
-    cluster_gap_s: float = DEFAULT_CLUSTER_GAP_S,
-    annotation_pad_s: float = 0.02,
-    artifact_threshold: float = 2000.0,
-    on_progress: Callable[[int, str], None] | None = None,
+    cluster_gap_s: float,
+    annotation_pad_s: float,
+    artifact_threshold: float,
 ) -> GoldStandardCache:
-    """
-    Run a single pipeline stage (1–5). Earlier outputs must exist unless
-    stage is 1 (uses raw ``channels``).
-    """
-    if stage < 1 or stage > 5:
-        raise ValueError("stage must be 1..5")
+    from data_handler import detect_and_blank_artifacts
 
-    if channels.ndim != 2:
-        raise ValueError("channels must be (n_channels, n_samples)")
+    _emit(0, STAGE_DESCRIPTIONS[1])
+    clean = np.empty((n_ch, n_s), dtype=np.float32)
+    for ch in range(n_ch):
+        clean[ch] = detect_and_blank_artifacts(
+            channels[ch].astype(np.float32, copy=False),
+            threshold=artifact_threshold,
+        )
+        _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 1 Ch{ch + 1}/{n_ch}")
+    cache.clean = clean
+    cache.stages_done.add(1)
+    return cache
 
-    n_ch = min(int(channels.shape[0]), int(max_channels))
-    n_s = int(channels.shape[1])
-    fs = float(max(cache.sample_rate, 1.0))
-    cache.n_channels = n_ch
-    cache.n_samples = n_s
-    cache.invalidate_from(stage)
 
-    def _emit(pct: int, msg: str) -> None:
-        if on_progress is not None:
-            on_progress(pct, msg)
+def _run_stage_2(
+    cache: GoldStandardCache,
+    channels: np.ndarray,
+    n_ch: int,
+    n_s: int,
+    fs: float,
+    _emit: Callable[[int, str], None],
+    *,
+    cluster_gap_s: float,
+    annotation_pad_s: float,
+    artifact_threshold: float,
+) -> GoldStandardCache:
+    if cache.clean is None:
+        raise RuntimeError("Run Step 1 (Artifact prep) first.")
+    _emit(0, STAGE_DESCRIPTIONS[2])
+    gated = np.empty((n_ch, n_s), dtype=np.float32)
+    for ch in range(n_ch):
+        gated[ch] = apply_energy_gate(cache.clean[ch], fs).astype(np.float32, copy=False)
+        _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 2 Ch{ch + 1}/{n_ch}")
+    cache.gated = gated
+    cache.stages_done.add(2)
+    return cache
 
-    if stage == 1:
-        from data_handler import detect_and_blank_artifacts
 
-        _emit(0, STAGE_DESCRIPTIONS[1])
-        clean = np.empty((n_ch, n_s), dtype=np.float32)
-        for ch in range(n_ch):
-            clean[ch] = detect_and_blank_artifacts(
-                channels[ch].astype(np.float32, copy=False),
-                threshold=artifact_threshold,
-            )
-            _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 1 Ch{ch + 1}/{n_ch}")
-        cache.clean = clean
-        cache.stages_done.add(1)
-        return cache
+def _run_stage_3(
+    cache: GoldStandardCache,
+    channels: np.ndarray,
+    n_ch: int,
+    n_s: int,
+    fs: float,
+    _emit: Callable[[int, str], None],
+    *,
+    cluster_gap_s: float,
+    annotation_pad_s: float,
+    artifact_threshold: float,
+) -> GoldStandardCache:
+    if cache.gated is None:
+        raise RuntimeError("Run Step 2 (Energy gate) first.")
+    _emit(0, STAGE_DESCRIPTIONS[3])
+    pulses_per_ch: list[np.ndarray] = []
+    for ch in range(n_ch):
+        pulses = detect_mup_timestamps(cache.gated[ch], fs)
+        pulses_per_ch.append(pulses)
+        _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 3 Ch{ch + 1}/{n_ch}: {pulses.size} pulses")
+    cache.pulses_per_ch = pulses_per_ch
+    cache.stages_done.add(3)
+    return cache
 
-    if stage == 2:
-        if cache.clean is None:
-            raise RuntimeError("Run Step 1 (Artifact prep) first.")
-        _emit(0, STAGE_DESCRIPTIONS[2])
-        gated = np.empty((n_ch, n_s), dtype=np.float32)
-        for ch in range(n_ch):
-            gated[ch] = apply_energy_gate(cache.clean[ch], fs).astype(np.float32, copy=False)
-            _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 2 Ch{ch + 1}/{n_ch}")
-        cache.gated = gated
-        cache.stages_done.add(2)
-        return cache
 
-    if stage == 3:
-        if cache.gated is None:
-            raise RuntimeError("Run Step 2 (Energy gate) first.")
-        _emit(0, STAGE_DESCRIPTIONS[3])
-        pulses_per_ch: list[np.ndarray] = []
-        for ch in range(n_ch):
-            pulses = detect_mup_timestamps(cache.gated[ch], fs)
-            pulses_per_ch.append(pulses)
-            _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 3 Ch{ch + 1}/{n_ch}: {pulses.size} pulses")
-        cache.pulses_per_ch = pulses_per_ch
-        cache.stages_done.add(3)
-        return cache
+def _run_stage_4(
+    cache: GoldStandardCache,
+    channels: np.ndarray,
+    n_ch: int,
+    n_s: int,
+    fs: float,
+    _emit: Callable[[int, str], None],
+    *,
+    cluster_gap_s: float,
+    annotation_pad_s: float,
+    artifact_threshold: float,
+) -> GoldStandardCache:
+    if cache.clean is None or cache.pulses_per_ch is None:
+        raise RuntimeError("Run Steps 1 and 3 first.")
+    _emit(0, STAGE_DESCRIPTIONS[4])
+    events_per_ch: list[list[dict]] = []
+    for ch in range(n_ch):
+        events = extract_train_features(
+            cache.pulses_per_ch[ch],
+            cache.clean[ch],
+            fs,
+            cluster_gap_s=cluster_gap_s,
+        )
+        for ev in events:
+            ev["channel_idx"] = ch
+        events_per_ch.append(events)
+        _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 4 Ch{ch + 1}/{n_ch}: {len(events)} clusters")
+    cache.events_per_ch = events_per_ch
+    cache.stages_done.add(4)
+    return cache
 
-    if stage == 4:
-        if cache.clean is None or cache.pulses_per_ch is None:
-            raise RuntimeError("Run Steps 1 and 3 first.")
-        _emit(0, STAGE_DESCRIPTIONS[4])
-        events_per_ch: list[list[dict]] = []
-        for ch in range(n_ch):
-            events = extract_train_features(
-                cache.pulses_per_ch[ch],
-                cache.clean[ch],
-                fs,
-                cluster_gap_s=cluster_gap_s,
-            )
-            for ev in events:
-                ev["channel_idx"] = ch
-            events_per_ch.append(events)
-            _emit(int((ch + 1) / max(n_ch, 1) * 100), f"Step 4 Ch{ch + 1}/{n_ch}: {len(events)} clusters")
-        cache.events_per_ch = events_per_ch
-        cache.stages_done.add(4)
-        return cache
 
-    # Stage 5
+def _run_stage_5(
+    cache: GoldStandardCache,
+    channels: np.ndarray,
+    n_ch: int,
+    n_s: int,
+    fs: float,
+    _emit: Callable[[int, str], None],
+    *,
+    cluster_gap_s: float,
+    annotation_pad_s: float,
+    artifact_threshold: float,
+) -> GoldStandardCache:
     if cache.events_per_ch is None:
         raise RuntimeError("Run Step 4 (Train clustering) first.")
     _emit(0, STAGE_DESCRIPTIONS[5])
@@ -231,6 +258,61 @@ def run_stage(
     cache.stages_done.add(5)
     _emit(100, f"Step 5 complete: {len(cache.annotations)} region(s)")
     return cache
+
+
+_STAGE_HANDLERS = {
+    1: _run_stage_1,
+    2: _run_stage_2,
+    3: _run_stage_3,
+    4: _run_stage_4,
+    5: _run_stage_5,
+}
+
+
+def run_stage(
+    stage: int,
+    cache: GoldStandardCache,
+    channels: np.ndarray,
+    *,
+    max_channels: int = 16,
+    cluster_gap_s: float = DEFAULT_CLUSTER_GAP_S,
+    annotation_pad_s: float = 0.02,
+    artifact_threshold: float = 2000.0,
+    on_progress: Callable[[int, str], None] | None = None,
+) -> GoldStandardCache:
+    """
+    Run a single pipeline stage (1–5). Earlier outputs must exist unless
+    stage is 1 (uses raw ``channels``).
+    """
+    if stage not in _STAGE_HANDLERS:
+        raise ValueError("stage must be 1..5")
+
+    if channels.ndim != 2:
+        raise ValueError("channels must be (n_channels, n_samples)")
+
+    n_ch = min(int(channels.shape[0]), int(max_channels))
+    n_s = int(channels.shape[1])
+    fs = float(max(cache.sample_rate, 1.0))
+    cache.n_channels = n_ch
+    cache.n_samples = n_s
+    cache.invalidate_from(stage)
+
+    def _emit(pct: int, msg: str) -> None:
+        if on_progress is not None:
+            on_progress(pct, msg)
+
+    handler = _STAGE_HANDLERS[stage]
+    return handler(
+        cache=cache,
+        channels=channels,
+        n_ch=n_ch,
+        n_s=n_s,
+        fs=fs,
+        _emit=_emit,
+        cluster_gap_s=cluster_gap_s,
+        annotation_pad_s=annotation_pad_s,
+        artifact_threshold=artifact_threshold,
+    )
 
 
 def run_stages(
