@@ -1492,14 +1492,22 @@ class MainWindow(QMainWindow):
 
     def show_micro_burst_overlay(self, channel_idx: int, spans: list[tuple[float, float]]) -> None:
         self.clear_micro_burst_overlay()
-        for t0, t1 in spans:
+
+        plot_item = self._plot_items[channel_idx]
+        brush = pg.mkBrush(0, 255, 255, 45)
+        pen = pg.mkPen(0, 255, 255, 180, width=1)
+
+        def create_item(t0: float, t1: float) -> tuple[int, pg.LinearRegionItem]:
             item = pg.LinearRegionItem(values=(float(t0), float(t1)), movable=False)
-            item.setBrush(pg.mkBrush(0, 255, 255, 45))
-            pen = pg.mkPen(0, 255, 255, 180, width=1)
+            item.setBrush(brush)
             for line in item.lines:
                 line.setPen(pen)
-            self._plot_items[channel_idx].addItem(item)
-            self._micro_burst_items.append((channel_idx, item))
+            plot_item.addItem(item)
+            return (channel_idx, item)
+
+        self._micro_burst_items.extend(
+            [create_item(t0, t1) for t0, t1 in spans]
+        )
 
     def _on_annotation_row_clicked(self, row: int, _col: int) -> None:
         region = self._row_region.get(row)
