@@ -515,7 +515,7 @@ class SignalPreprocessor:
         self._sep_max_dur = int(5.0 * sample_rate / 1000)
 
         self._sos_list: list[np.ndarray] = []
-        self._zi: list[list[np.ndarray]] = []
+        self._zi: list[np.ndarray] = []
 
         for freq in notch_freqs:
             if freq >= sample_rate / 2:
@@ -525,21 +525,24 @@ class SignalPreprocessor:
             self._sos_list.append(sos)
 
             zi_template = sosfilt_zi(sos)
-            self._zi.append([zi_template.copy() for _ in range(num_channels)])
+            # Scipy sosfilt expects zi to be broadcastable or shape matching.
+            # For 2D inputs over axis=-1, zi needs to be shape (n_sections, num_channels, 2)
+            zi_array = np.stack([zi_template] * num_channels, axis=1)
+            self._zi.append(zi_array)
 
     # ── per-chunk: notch filtering (stateful) ─────────────────────────
 
     def apply_notch(self, channels: np.ndarray) -> np.ndarray:
         """Apply all notch filters to a (num_ch, chunk_len) array in-place-ish."""
         out = channels.copy()
+        n_ch = min(out.shape[0], self._num_ch)
+
         for f_idx, sos in enumerate(self._sos_list):
-            for ch in range(min(out.shape[0], self._num_ch)):
-                zi = self._zi[f_idx][ch]
-                filtered, self._zi[f_idx][ch] = sosfilt(
-                    sos, out[ch], zi=zi,
-                )
-                out[ch] = filtered.astype(np.float32)
-        return out
+            out[:n_ch], self._zi[f_idx][:, :n_ch, :] = sosfilt(
+                sos, out[:n_ch], axis=-1, zi=self._zi[f_idx][:, :n_ch, :]
+            )
+
+        return out.astype(np.float32, copy=False)
 
     # ── full-signal: artifact blanking ────────────────────────────────
 
