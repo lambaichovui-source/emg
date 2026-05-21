@@ -37,6 +37,7 @@ import pyqtgraph as pg
 
 NUM_CHANNELS = 16
 TIMEBASE_OPTIONS = [5, 10, 20, 40]
+TIMEBASE_INDEX_MAP = {s: i for i, s in enumerate(TIMEBASE_OPTIONS)}
 SCROLL_SCALE = 1000  # ticks per second for time scrollbar
 CLINICAL_Y_MIN = -100.0
 CLINICAL_Y_MAX = 100.0
@@ -1052,7 +1053,7 @@ class MainWindow(QMainWindow):
             return
         self._timebase_sec = new_tb
         # Sync the combo box without triggering _on_timebase_changed again
-        idx = self.combo_timebase.findData(new_tb)
+        idx = TIMEBASE_INDEX_MAP.get(new_tb, -1)
         if idx >= 0:
             self.combo_timebase.blockSignals(True)
             self.combo_timebase.setCurrentIndex(idx)
@@ -1071,7 +1072,7 @@ class MainWindow(QMainWindow):
         if new_tb == self._timebase_sec:
             return
         self._timebase_sec = new_tb
-        idx = self.combo_timebase.findData(new_tb)
+        idx = TIMEBASE_INDEX_MAP.get(new_tb, -1)
         if idx >= 0:
             self.combo_timebase.blockSignals(True)
             self.combo_timebase.setCurrentIndex(idx)
